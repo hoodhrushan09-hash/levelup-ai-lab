@@ -1,0 +1,37 @@
+{
+  "entities": {
+    "Chat": {
+      "title": "Chat Session",
+      "description": "A conversation session between a user and the AI.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "The title of the chat session." },
+        "userId": { "type": "string", "description": "The UID of the user who owns this chat." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the chat was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the chat was last updated." }
+      },
+      "required": ["title", "userId", "createdAt", "updatedAt"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "A single message within a chat session.",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["user", "model"], "description": "The role of the message sender." },
+        "content": { "type": "string", "description": "The text content of the message." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the message was sent." }
+      },
+      "required": ["role", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/chats": {
+      "schema": { "$ref": "Chat" },
+      "description": "Collection of chat sessions."
+    },
+    "/chats/{chatId}/messages": {
+      "schema": { "$ref": "Message" },
+      "description": "Subcollection of messages for a specific chat."
+    }
+  }
+}

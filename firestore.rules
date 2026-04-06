@@ -1,0 +1,83 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: chats
+// Document ID: auto-generated
+// Fields:
+//   - title: string (required) - The title of the chat session.
+//   - userId: string (required, immutable) - The UID of the user who owns this chat.
+//   - createdAt: timestamp (required, immutable) - When the chat was created.
+//   - updatedAt: timestamp (required) - When the chat was last updated.
+//
+// Subcollection: chats/{chatId}/messages
+// Document ID: auto-generated
+// Fields:
+//   - role: string (required, enum: ['user', 'model']) - The role of the message sender.
+//   - content: string (required) - The text content of the message.
+//   - createdAt: timestamp (required, immutable) - When the message was sent.
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isChatOwner(chatId) {
+      return isAuthenticated() && get(/databases/$(database)/documents/chats/$(chatId)).data.userId == request.auth.uid;
+    }
+
+    function isValidChat(data) {
+      return data.keys().hasAll(['title', 'userId', 'createdAt', 'updatedAt']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 100 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['role', 'content', 'createdAt']) &&
+             data.role in ['user', 'model'] &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 10000 &&
+             data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /chats/{chatId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && isValidChat(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && isValidChat(request.resource.data) &&
+                      request.resource.data.userId == resource.data.userId &&
+                      request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isOwner(resource.data.userId);
+
+      match /messages/{messageId} {
+        allow read: if isChatOwner(chatId);
+        allow create: if isChatOwner(chatId) && isValidMessage(request.resource.data);
+        allow update: if isChatOwner(chatId) && isValidMessage(request.resource.data) &&
+                        request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if isChatOwner(chatId);
+      }
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
